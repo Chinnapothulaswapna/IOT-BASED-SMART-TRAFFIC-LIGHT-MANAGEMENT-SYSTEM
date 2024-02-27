@@ -1,0 +1,95 @@
+import cv2
+import numpy as np
+import time
+import RPi.GPIO as GPIO
+
+# Define GPIO pins for traffic lights
+RED_PIN = 17
+YELLOW_PIN = 27
+GREEN_PIN = 22
+
+# Initialize GPIO settings
+GPIO.setmode(GPIO.BCM)
+GPIO.setup(RED_PIN, GPIO.OUT)
+GPIO.setup(YELLOW_PIN, GPIO.OUT)
+GPIO.setup(GREEN_PIN, GPIO.OUT)
+
+def traffic_light_control(traffic_state):
+    GPIO.output(RED_PIN, traffic_state[0])
+    GPIO.output(YELLOW_PIN, traffic_state[1])
+    GPIO.output(GREEN_PIN, traffic_state[2])
+
+def detect_traffic_light_color(frame):
+    # Implement your color detection logic here
+    # This could involve BLOB analysis or Haar-Cascade for traffic light detection
+    # The example below assumes a simple color-based detection for illustration purposes
+
+    hsv_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
+
+    # Define color ranges for red, yellow, and green
+    red_lower = np.array([0, 100, 100])
+    red_upper = np.array([10, 255, 255])
+
+    yellow_lower = np.array([20, 100, 100])
+    yellow_upper = np.array([30, 255, 255])
+
+    green_lower = np.array([40, 100, 100])
+    green_upper = np.array([80, 255, 255])
+
+    mask_red = cv2.inRange(hsv_frame, red_lower, red_upper)
+    mask_yellow = cv2.inRange(hsv_frame, yellow_lower, yellow_upper)
+    mask_green = cv2.inRange(hsv_frame, green_lower, green_upper)
+
+    # Check which color has the maximum pixels in the region where the traffic light is expected
+    red_pixels = np.sum(mask_red)
+    yellow_pixels = np.sum(mask_yellow)
+    green_pixels = np.sum(mask_green)
+
+    color = np.argmax([red_pixels, yellow_pixels, green_pixels])
+
+    if color == 0:
+        return "red"
+    elif color == 1:
+        return "yellow"
+    elif color == 2:
+        return "green"
+    else:
+        return "unknown"
+
+def main():
+    cap = cv2.VideoCapture(0)  # Use the correct camera index if you have multiple cameras
+
+    try:
+        while True:
+            ret, frame = cap.read()
+            if not ret:
+                print("Error capturing frame.")
+                break
+
+            # Implement your traffic light detection and control logic
+            detected_color = detect_traffic_light_color(frame)
+
+            if detected_color == "red":
+                traffic_light_control([1, 0, 0])
+            elif detected_color == "yellow":
+                traffic_light_control([0, 1, 0])
+            elif detected_color == "green":
+                traffic_light_control([0, 0, 1])
+            else:
+                traffic_light_control([0, 0, 0])
+
+            cv2.imshow("Traffic Light Detection", frame)
+
+            if cv2.waitKey(1) & 0xFF == ord('q'):
+                break
+
+    except KeyboardInterrupt:
+        print("Exiting...")
+    finally:
+        # Cleanup GPIO settings
+        GPIO.cleanup()
+        cap.release()
+        cv2.destroyAllWindows()
+
+if __name__ == "__main__":
+    main()
